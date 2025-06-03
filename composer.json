@@ -17,6 +17,8 @@
         }
     ],
     "support": {
+        "issues": "https://github.com/searchcraft-inc/searchcraft-issues",
+        "source": "https://github.com/searchcraft-inc/searchcraft-client-php",
         "docs": "https://docs.searchcraft.io"
     },
     "minimum-stability": "stable",
