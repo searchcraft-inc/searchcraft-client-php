@@ -4,6 +4,8 @@
 
 A [PSR-compatible](https://www.php-fig.org/psr/) PHP client for the Searchcraft API.
 
+[![Test Status](https://github.com/searchcraft-inc/searchcraft-client-php/actions/workflows/tests.yml/badge.svg)](https://github.com/searchcraft-inc/searchcraft-client-php/actions/workflows/tests.yml)
+
 #### [Documentation](https://docs.searchcraft.io?utm_campaign=oss&utm_source=github&utm_medium=searchcraft-php-client) | [Discord](https://discord.com/invite/y3zUHkBk6e) | [FAQ](https://www.searchcraft.io/frequently-asked-questions?utm_campaign=oss&utm_source=github&utm_medium=searchcraft-php-client) | [Issues / Requests](https://github.com/searchcraft-inc/searchcraft-issues) | [Searchcraft Cloud](https://vektron.searchcraft.io?utm_campaign=oss&utm_source=github&utm_medium=searchcraft-php-client) | [Searchcraft Website](https://searchcraft.io?utm_campaign=oss&utm_source=github&utm_medium=searchcraft-php-client)
 
 ## Installation
