@@ -1,0 +1,248 @@
+name: Discord PR Notifications
+
+on:
+  pull_request:
+    types: [opened, synchronize, closed, reopened]
+  pull_request_review:
+    types: [submitted]
+  pull_request_review_comment:
+    types: [created]
+  issue_comment:
+    types: [created]
+
+jobs:
+  notify-discord:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request || (github.event.issue.pull_request && github.event_name == 'issue_comment')
+
+    steps:
+      - name: Determine notification type
+        id: notification-type
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            if [ "${{ github.event.action }}" = "opened" ]; then
+              echo "type=🆕 New Pull Request" >> $GITHUB_OUTPUT
+              echo "color=3066993" >> $GITHUB_OUTPUT
+            elif [ "${{ github.event.action }}" = "synchronize" ]; then
+              echo "type=🔄 Pull Request Updated" >> $GITHUB_OUTPUT
+              echo "color=15844367" >> $GITHUB_OUTPUT
+            elif [ "${{ github.event.action }}" = "reopened" ]; then
+              echo "type=🔓 Pull Request Reopened" >> $GITHUB_OUTPUT
+              echo "color=15844367" >> $GITHUB_OUTPUT
+            elif [ "${{ github.event.action }}" = "closed" ] && [ "${{ github.event.pull_request.merged }}" = "true" ]; then
+              echo "type=✅ Pull Request Merged" >> $GITHUB_OUTPUT
+              echo "color=5763719" >> $GITHUB_OUTPUT
+            elif [ "${{ github.event.action }}" = "closed" ] && [ "${{ github.event.pull_request.merged }}" = "false" ]; then
+              echo "type=❌ Pull Request Closed" >> $GITHUB_OUTPUT
+              echo "color=15158332" >> $GITHUB_OUTPUT
+            fi
+          elif [ "${{ github.event_name }}" = "pull_request_review" ]; then
+            if [ "${{ github.event.review.state }}" = "approved" ]; then
+              echo "type=✅ Pull Request Approved" >> $GITHUB_OUTPUT
+              echo "color=5763719" >> $GITHUB_OUTPUT
+            elif [ "${{ github.event.review.state }}" = "changes_requested" ]; then
+              echo "type=🔄 Changes Requested" >> $GITHUB_OUTPUT
+              echo "color=15158332" >> $GITHUB_OUTPUT
+            else
+              echo "type=💬 Pull Request Reviewed" >> $GITHUB_OUTPUT
+              echo "color=7506394" >> $GITHUB_OUTPUT
+            fi
+          elif [ "${{ github.event_name }}" = "pull_request_review_comment" ]; then
+            echo "type=💬 Review Comment Added" >> $GITHUB_OUTPUT
+            echo "color=7506394" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "issue_comment" ]; then
+            echo "type=💬 Comment Added" >> $GITHUB_OUTPUT
+            echo "color=7506394" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Format commit info and get PR data
+        id: commit-info
+        run: |
+          # Determine PR data source based on event type
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            pr_number="${{ github.event.pull_request.number }}"
+            pr_title="${{ github.event.pull_request.title }}"
+            pr_url="${{ github.event.pull_request.html_url }}"
+            pr_author="${{ github.event.pull_request.user.login }}"
+            pr_author_url="${{ github.event.pull_request.user.html_url }}"
+            pr_head_ref="${{ github.event.pull_request.head.ref }}"
+            pr_base_ref="${{ github.event.pull_request.base.ref }}"
+            pr_additions="${{ github.event.pull_request.additions }}"
+            pr_deletions="${{ github.event.pull_request.deletions }}"
+            pr_changed_files="${{ github.event.pull_request.changed_files }}"
+            pr_commits="${{ github.event.pull_request.commits }}"
+            pr_body="${{ github.event.pull_request.body }}"
+            pr_updated_at="${{ github.event.pull_request.updated_at }}"
+          elif [ "${{ github.event_name }}" = "issue_comment" ]; then
+            pr_number="${{ github.event.issue.number }}"
+            pr_title="${{ github.event.issue.title }}"
+            pr_url="${{ github.event.issue.html_url }}"
+            pr_author="${{ github.event.issue.user.login }}"
+            pr_author_url="${{ github.event.issue.user.html_url }}"
+            # For comments, we don't have all PR details readily available
+            pr_head_ref="N/A"
+            pr_base_ref="N/A"
+            pr_additions="N/A"
+            pr_deletions="N/A"
+            pr_changed_files="N/A"
+            pr_commits="N/A"
+            pr_body="${{ github.event.comment.body }}"
+            pr_updated_at="${{ github.event.comment.updated_at }}"
+          else
+            # For review events
+            pr_number="${{ github.event.pull_request.number }}"
+            pr_title="${{ github.event.pull_request.title }}"
+            pr_url="${{ github.event.pull_request.html_url }}"
+            pr_author="${{ github.event.pull_request.user.login }}"
+            pr_author_url="${{ github.event.pull_request.user.html_url }}"
+            pr_head_ref="${{ github.event.pull_request.head.ref }}"
+            pr_base_ref="${{ github.event.pull_request.base.ref }}"
+            pr_additions="${{ github.event.pull_request.additions }}"
+            pr_deletions="${{ github.event.pull_request.deletions }}"
+            pr_changed_files="${{ github.event.pull_request.changed_files }}"
+            pr_commits="${{ github.event.pull_request.commits }}"
+            if [ "${{ github.event_name }}" = "pull_request_review" ]; then
+              pr_body="${{ github.event.review.body }}"
+              pr_updated_at="${{ github.event.review.submitted_at }}"
+            else
+              pr_body="${{ github.event.comment.body }}"
+              pr_updated_at="${{ github.event.comment.updated_at }}"
+            fi
+          fi
+
+          # Format commit text
+          if [ "$pr_commits" = "1" ]; then
+            commit_text="1 commit"
+          elif [ "$pr_commits" = "N/A" ]; then
+            commit_text="N/A"
+          else
+            commit_text="${pr_commits} commits"
+          fi
+
+          # Export all variables using proper format for multiline values
+          echo "pr_number=${pr_number}" >> $GITHUB_OUTPUT
+          {
+            echo "pr_title<<EOF"
+            echo "${pr_title}"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+          echo "pr_url=${pr_url}" >> $GITHUB_OUTPUT
+          echo "pr_author=${pr_author}" >> $GITHUB_OUTPUT
+          echo "pr_author_url=${pr_author_url}" >> $GITHUB_OUTPUT
+          echo "pr_head_ref=${pr_head_ref}" >> $GITHUB_OUTPUT
+          echo "pr_base_ref=${pr_base_ref}" >> $GITHUB_OUTPUT
+          echo "pr_additions=${pr_additions}" >> $GITHUB_OUTPUT
+          echo "pr_deletions=${pr_deletions}" >> $GITHUB_OUTPUT
+          echo "pr_changed_files=${pr_changed_files}" >> $GITHUB_OUTPUT
+          echo "commit_text=${commit_text}" >> $GITHUB_OUTPUT
+          {
+            echo "pr_body<<EOF"
+            echo "${pr_body}"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+          echo "pr_updated_at=${pr_updated_at}" >> $GITHUB_OUTPUT
+
+      - name: Send Discord notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          # Check if webhook URL is set
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "⚠️ DISCORD_WEBHOOK_URL secret is not set. Skipping notification."
+            exit 0
+          fi
+
+          # Prepare the Discord embed payload
+          cat << EOF > discord_payload.json
+          {
+            "embeds": [
+              {
+                "title": "${{ steps.notification-type.outputs.type }}",
+                "description": "**[${{ steps.commit-info.outputs.pr_title }}](${{ steps.commit-info.outputs.pr_url }})**",
+                "color": ${{ steps.notification-type.outputs.color }},
+                "fields": [
+                  {
+                    "name": "Repository",
+                    "value": "[${{ github.repository }}](https://github.com/${{ github.repository }})",
+                    "inline": true
+                  },
+                  {
+                    "name": "Author",
+                    "value": "[${{ steps.commit-info.outputs.pr_author }}](${{ steps.commit-info.outputs.pr_author_url }})",
+                    "inline": true
+                  }
+                ],
+                "timestamp": "${{ steps.commit-info.outputs.pr_updated_at }}",
+                "footer": {
+                  "text": "GitHub",
+                  "icon_url": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+                }
+              }
+            ]
+          }
+          EOF
+
+          # Add event-specific fields
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # Add PR-specific fields for pull request events
+            jq '.embeds[0].fields += [
+              {"name": "Branch", "value": "`${{ steps.commit-info.outputs.pr_head_ref }}` → `${{ steps.commit-info.outputs.pr_base_ref }}`", "inline": false},
+              {"name": "Changes", "value": "+${{ steps.commit-info.outputs.pr_additions }} -${{ steps.commit-info.outputs.pr_deletions }} (${{ steps.commit-info.outputs.commit_text }})", "inline": true},
+              {"name": "Files Changed", "value": "${{ steps.commit-info.outputs.pr_changed_files }}", "inline": true}
+            ]' discord_payload.json > temp.json && mv temp.json discord_payload.json
+          elif [ "${{ github.event_name }}" = "pull_request_review" ]; then
+            # Add reviewer information for review events
+            jq --arg reviewer "${{ github.event.review.user.login }}" \
+               --arg reviewer_url "${{ github.event.review.user.html_url }}" \
+               '.embeds[0].fields += [
+                 {"name": "Reviewer", "value": "[\($reviewer)](\($reviewer_url))", "inline": true},
+                 {"name": "PR Number", "value": "#${{ steps.commit-info.outputs.pr_number }}", "inline": true}
+               ]' discord_payload.json > temp.json && mv temp.json discord_payload.json
+          elif [ "${{ github.event_name }}" = "pull_request_review_comment" ]; then
+            # Add commenter information for review comment events
+            jq --arg commenter "${{ github.event.comment.user.login }}" \
+               --arg commenter_url "${{ github.event.comment.user.html_url }}" \
+               '.embeds[0].fields += [
+                 {"name": "Commenter", "value": "[\($commenter)](\($commenter_url))", "inline": true},
+                 {"name": "PR Number", "value": "#${{ steps.commit-info.outputs.pr_number }}", "inline": true}
+               ]' discord_payload.json > temp.json && mv temp.json discord_payload.json
+          elif [ "${{ github.event_name }}" = "issue_comment" ]; then
+            # Add commenter information for general comment events
+            jq --arg commenter "${{ github.event.comment.user.login }}" \
+               --arg commenter_url "${{ github.event.comment.user.html_url }}" \
+               '.embeds[0].fields += [
+                 {"name": "Commenter", "value": "[\($commenter)](\($commenter_url))", "inline": true},
+                 {"name": "PR Number", "value": "#${{ steps.commit-info.outputs.pr_number }}", "inline": true}
+               ]' discord_payload.json > temp.json && mv temp.json discord_payload.json
+          fi
+
+          # Add description field based on event type
+          body_content="${{ steps.commit-info.outputs.pr_body }}"
+          if [ -n "$body_content" ] && [ "$body_content" != "null" ]; then
+            # Truncate description to 300 characters to avoid Discord limits
+            description=$(echo "$body_content" | head -c 300)
+            if [ ${#description} -eq 300 ]; then
+              description="${description}..."
+            fi
+
+            # Determine field name based on event type
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              field_name="Description"
+            elif [ "${{ github.event_name }}" = "pull_request_review" ]; then
+              field_name="Review Comment"
+            else
+              field_name="Comment"
+            fi
+
+            # Use jq to safely add the description field
+            jq --arg desc "$description" --arg field_name "$field_name" \
+               '.embeds[0].fields += [{"name": $field_name, "value": $desc, "inline": false}]' \
+               discord_payload.json > temp.json && mv temp.json discord_payload.json
+          fi
+
+          # Send the webhook
+          curl -H "Content-Type: application/json" \
+               -d @discord_payload.json \
+               "$DISCORD_WEBHOOK"
+
+          echo "✅ Discord notification sent successfully!"
