@@ -100,7 +100,7 @@ abstract class Base
         // Add request body for POST, PUT, PATCH, DELETE
         if (in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE']) && !empty($params)) {
             $request = $request->withHeader('Content-Type', 'application/json');
-            $body = $this->streamFactory->createStream(json_encode($params));
+            $body = $this->streamFactory->createStream(json_encode($params, JSON_PRESERVE_ZERO_FRACTION));
             $request = $request->withBody($body);
         } elseif ($method === 'GET' && !empty($params)) {
             // Add query parameters for GET
