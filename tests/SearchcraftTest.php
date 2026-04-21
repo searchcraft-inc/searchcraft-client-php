@@ -10,6 +10,7 @@ use Searchcraft\Api\Documents;
 use Searchcraft\Api\Federation;
 use Searchcraft\Api\Healthcheck;
 use Searchcraft\Api\Index;
+use Searchcraft\Api\Measure;
 use Searchcraft\Api\Search;
 use Searchcraft\Api\Stopwords;
 use Searchcraft\Api\Synonyms;
@@ -195,6 +196,18 @@ test('Searchcraft::synonyms returns Synonyms instance', function () {
         $this->streamFactory
     );
     expect($searchcraft->synonyms())->toBeInstanceOf(Synonyms::class);
+});
+
+test('Searchcraft::measure returns Measure instance', function () {
+    $searchcraft = new Searchcraft(
+        $this->apiKey,
+        Searchcraft::KEY_TYPE_ADMIN,
+        null,
+        $this->httpClient,
+        $this->requestFactory,
+        $this->streamFactory
+    );
+    expect($searchcraft->measure())->toBeInstanceOf(Measure::class);
 });
 
 test('Searchcraft::transactions returns Transactions instance', function () {

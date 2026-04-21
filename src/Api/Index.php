@@ -47,6 +47,26 @@ class Index extends Base
     }
 
     /**
+     * Get AI capability and configuration status for an index.
+     *
+     * Reports whether AI features are enabled and whether an LLM provider,
+     * model, and search summary configuration are set for the index.
+     *
+     * Added in Searchcraft Engine 0.10.0.
+     *
+     * @param string $indexName Index name.
+     * @return array Capability details, decoded from JSON. The top-level
+     *               `ai` object contains `enabled`, `searchSummaryConfigured`,
+     *               `llmProviderConfigured`, and `llmModelConfigured` keys.
+     * @throws SearchcraftException On network failure, an invalid JSON
+     *                              response, or an HTTP status >= 400.
+     */
+    public function getCapabilities(string $indexName): array
+    {
+        return $this->request('GET', "/index/{$indexName}/capabilities");
+    }
+
+    /**
      * Create a new index.
      *
      * @param string $indexName Index name
@@ -71,7 +91,7 @@ class Index extends Base
     public function updateIndex(string $indexName, array $options): array
     {
         $params = array_merge(['name' => $indexName], $options);
-        return $this->request('PUT', "/index/{$indexName}", [ 'index' => $params ] );
+        return $this->request('PUT', "/index/{$indexName}", [ 'index' => $params ]);
     }
 
     /**
@@ -79,7 +99,9 @@ class Index extends Base
      *
      * Allows partial configuration changes without re-ingesting data.
      * Updates are limited to search_fields, weight_multipliers, language,
-     * time_decay_field, auto_commit_delay and exclude_stop_words settings.
+     * time_decay_field, auto_commit_delay, exclude_stop_words, and top-level
+     * ai / ai_enabled settings. When ai is provided the stored AI config is
+     * replaced. Changing ai_enabled requires an admin-level key.
      *
      * @param string $indexName Index name
      * @param array $options Partial configuration options to update

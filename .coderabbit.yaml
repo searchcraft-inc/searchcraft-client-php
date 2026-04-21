@@ -1,0 +1,222 @@
+language: "en-US"
+
+reviews:
+  auto_review:
+    enabled: true
+    base_branches: ["main"]
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
+      - "DRAFT"
+      - "Version"
+      - "version"
+      - "Release"
+      - "release"
+
+    drafts: false
+
+
+  profile: "chill"
+  request_changes_workflow: true
+  poem: false
+  collapse_walkthrough: false
+
+  path_instructions:
+    - path: "**/*.php"
+      instructions: |
+        This is a PSR-compatible PHP client library for the Searchcraft
+        API (per the project README at
+        https://www.php-fig.org/psr/). The README explicitly commits the
+        library to remaining compatible with PSR-18 HTTP clients
+        (https://www.php-fig.org/psr/psr-18/) — users bring their own
+        PSR-18 client, and the library uses php-http/discovery to resolve
+        one. Do NOT add a hard dependency on Guzzle, Symfony HttpClient,
+        or any other concrete HTTP library in `require` or under `src/`;
+        concrete implementations belong in composer.json `suggest`.
+
+        The library accepts caller-supplied PSR-17 request/stream
+        factories (the README example passes `$requestFactory` and
+        `$streamFactory` to the constructor), and exchanges PSR-7
+        request/response objects internally. Preserve those interfaces —
+        do not downgrade any parameter or return type to a concrete
+        class.
+
+        Internal coding standard: the project pins `<rule ref="PSR12"/>`
+        in phpcs.xml.dist. Do NOT apply WordPress (WPCS), PEAR, or Squiz
+        rulesets, and do NOT add PEAR-style file/class header tags
+        (@category, @package, @author, @license, @link) — the project
+        deliberately omits them. Match the existing house style: spaces
+        not tabs, 4-space indent, LF line endings, 120-char soft wrap.
+
+        Every source file starts with `declare(strict_types=1);` after
+        the namespace line. Public methods carry PHPDoc with @param,
+        @return, and @throws tags — the client is expected to remain
+        typed end-to-end.
+
+        Autoloading: library code lives under the `Searchcraft\`
+        namespace mapped to `src/`; test code under `Searchcraft\Tests\`
+        mapped to `tests/`; test helpers under
+        `Searchcraft\Tests\Helpers` in `tests/Helpers/`. Each class must
+        live in its own file.
+
+        PHP version range is "^7.4 || ^8.0" per composer.json. Do not
+        use features that break on 7.4 (named arguments, match, readonly
+        properties, first-class callable syntax, enums) without verifying
+        compatibility.
+
+        This is a library, not a web app. Do NOT add HTML-escaping
+        helpers, session handling, CSRF protection, or any
+        framework-specific integration (WordPress, Laravel, Symfony).
+
+        Security: API keys travel in the Authorization header. Do NOT
+        log them, embed them in exception messages, include them in
+        test fixtures, or commit real keys. When JSON-encoding request
+        payloads, keep `JSON_PRESERVE_ZERO_FRACTION` — it guards
+        numeric floats like `75.00` from being coerced to ints and
+        rejected by engine-side ingest validation (see the 0.7.5 bugfix
+        in CHANGELOG.md).
+
+    - path: "src/Api/**"
+      instructions: |
+        Every API class extends `Searchcraft\Api\Base` and uses
+        `$this->request()` for standard JSON endpoints or
+        `$this->streamRequest()` for Server-Sent Events endpoints. Do
+        NOT bypass Base to call `$this->httpClient` directly — that
+        skips consistent header handling, error mapping, and JSON
+        decoding.
+
+        Endpoint methods should accept typed arguments, validate
+        pagination through `Searchcraft\Validators` helpers where
+        relevant, and return `array` (the JSON-decoded response).
+        Error responses (>= 400) are surfaced as `SearchcraftException`
+        by Base; callers should not reimplement that.
+
+    - path: "src/Api/Base.php"
+      instructions: |
+        Changes here affect every API class — verify every existing
+        endpoint test still passes. The SSE parser in
+        `parseEventStream()` must tolerate both LF and CRLF line
+        endings, ignore `:` comment lines, coalesce multi-line `data:`
+        fields with `\n`, and reassemble events split across chunk
+        boundaries. `streamRequest()` intentionally JSON-encodes the
+        body with `JSON_PRESERVE_ZERO_FRACTION` — do not remove that
+        flag. GET requests with params must include the query string
+        in the URL passed to `requestFactory->createRequest()` (this
+        was a prior bug).
+
+        All HTTP interaction must go through the PSR-18 client and
+        PSR-17 factories supplied to the constructor. Do NOT introduce
+        `curl_*`, `file_get_contents`, or any other direct transport —
+        that would break PSR-18 compatibility advertised in the README.
+
+    - path: "src/Validators.php"
+      instructions: |
+        Validators are client-side fast-fail helpers. Keep them pure
+        static functions with no I/O, no state, and no dependencies on
+        the HTTP stack. Keep the surface minimal — do not grow this
+        into a DTO or schema library. Any new validator must have a
+        matching test in `tests/ValidatorsTest.php`.
+
+    - path: "tests/**"
+      instructions: |
+        Tests use Pest + Mockery. Helper classes (test doubles, stubs,
+        concrete-subclass test rigs) live under `tests/Helpers/` with
+        the `Searchcraft\Tests\Helpers` namespace. Do NOT declare
+        helper classes inline inside a test file — one class per file,
+        autoloaded via composer's PSR-4 dev map.
+
+        Keep tests deterministic: no real network calls, no real
+        filesystem writes, no time-dependent assertions. Use Mockery
+        to mock the PSR-18 client and PSR-17 / PSR-7 interfaces.
+
+    - path: "composer.json"
+      instructions: |
+        Dependency rules, aligned with the README's PSR-compatibility
+        promise:
+        - `require`: only `php`, `ext-json`, and PSR interfaces
+          (`php-http/discovery`, `psr/http-client`). No concrete HTTP
+          client.
+        - `require-dev`: test + lint tooling only (pest, mockery,
+          php-cs-fixer, and a PSR-17/PSR-18 implementation such as
+          guzzle for the test suite).
+        - `suggest`: the concrete PSR-18 / PSR-17 implementations the
+          README recommends to end users.
+
+        The client version in `composer.json` and
+        `src/Searchcraft.php::VERSION` must stay in sync. Client semver
+        is independent of Searchcraft Engine versions (see the
+        CHANGELOG.md preamble and the Compatibility table in
+        README.md). Engine-only changes never require a client major
+        bump.
+
+    - path: "CHANGELOG.md"
+      instructions: |
+        Follow the existing layout: one H2 per version in descending
+        order, a short narrative sentence, then bulleted `New`, `Doc`,
+        and `Fix` entries. Do not prepend dates. Keep entries terse.
+        When a release adds support for new engine features, state the
+        engine version explicitly ("Support for Searchcraft Engine
+        X.Y.Z.").
+
+    - path: "README.md"
+      instructions: |
+        Keep the "Compatibility" table in sync with the latest
+        supported engine version, and keep the PSR claims honest —
+        only add a PSR reference when the library actually satisfies
+        that PSR end-to-end. Do not document unreleased methods.
+        Treat every code snippet as copy-pasteable — confirm each
+        compiles on PHP 7.4 (no match, no readonly props, etc.).
+
+    - path: "examples/**"
+      instructions: |
+        Examples are copy-paste reference material. Every example
+        must compile on PHP 7.4+, use only public API surface from
+        `src/`, and import via composer autoload. Do not reach into
+        private or protected internals, and do not hard-code real API
+        keys or URLs.
+
+    - path: "phpcs.xml.dist"
+      instructions: |
+        The project pins `<rule ref="PSR12"/>` deliberately. Do not
+        introduce PEAR, Squiz, or WordPress-Core standards, and do not
+        add file/class header sniffs that require
+        `@category`/`@package`/`@author`/`@license`/`@link` tags.
+
+    - path: ".github/workflows/**"
+      instructions: |
+        CI should run `./vendor/bin/pest` (test suite) and a lint step
+        that invokes `phpcs` against `phpcs.xml.dist` (or
+        `php-cs-fixer fix --dry-run`). Do not skip or weaken either.
+
+  tools:
+    # Security scanning
+    semgrep:
+      enabled: true
+
+    # Secrets detection — especially important for a client that
+    # handles API keys.
+    gitleaks:
+      enabled: true
+
+  # Ignore paths
+  path_filters:
+    # Vendor dependencies
+    - "!vendor/**"
+    - "!node_modules/**"
+
+    # Build and tooling caches
+    - "!.php-cs-fixer.cache"
+    - "!.phpunit.cache/**"
+    - "!.phpunit.result.cache"
+    - "!coverage/**"
+    - "!dist/**"
+
+    # Binary assets
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.jpeg"
+    - "!**/*.gif"
+
+# Chat settings
+chat:
+  auto_reply: true

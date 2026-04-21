@@ -1,4 +1,5 @@
 <?php
+
 use Searchcraft\Exception\SearchcraftException;
 
 test('SearchcraftException::constructor', function () {
@@ -61,5 +62,3 @@ test('SearchcraftException::fromApiResponse with unknown error format', function
     // The test should now expect the wrapped array format:
     expect($exception->getErrorData())->toBe(['__original_error' => $responseData['error']]);
 });
-
-

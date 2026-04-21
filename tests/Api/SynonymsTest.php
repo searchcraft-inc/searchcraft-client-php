@@ -1,4 +1,5 @@
 <?php
+
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
@@ -69,7 +70,10 @@ test('Synonyms::addSynonyms', function () {
     $indexName = 'test-index';
     $synonyms = [['hot', 'warm'], ['cold', 'cool', 'chilly']];
 
-    $responseData = ['added' => 2, 'synonyms' => [['big', 'large'], ['small', 'tiny'], ['hot', 'warm'], ['cold', 'cool', 'chilly']]];
+    $responseData = [
+        'added' => 2,
+        'synonyms' => [['big', 'large'], ['small', 'tiny'], ['hot', 'warm'], ['cold', 'cool', 'chilly']],
+    ];
     $responseJson = json_encode($responseData);
 
     $this->requestFactory->shouldReceive('createRequest')
