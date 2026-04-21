@@ -5,6 +5,9 @@ vendor/*
 node_modules/
 dist/
 
+# php-cs-fixer local run cache
+.php-cs-fixer.cache
+
 # Compiled Java class files
 *.class
 
@@ -46,3 +49,4 @@ Thumbs.db
 *.mov
 *.wmv
 
+.claude

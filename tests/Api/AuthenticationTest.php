@@ -101,6 +101,41 @@ test('Authentication::getFederationKeys', function () {
     expect($result)->toBe($responseData);
 });
 
+test('Authentication::getIndexKeys', function () {
+    $indexName = 'products';
+    $responseData = ['keys' => []];
+    $responseJson = json_encode($responseData);
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->with('GET', $this->apiEndpoint . "/auth/index/{$indexName}")
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->with($this->request)
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(200);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn($responseJson);
+
+    $result = $this->auth->getIndexKeys($indexName);
+
+    expect($result)->toBe($responseData);
+});
+
 test('Authentication::getOrganizationKeys', function () {
     $organizationId = 'org123';
     $responseData = ['keys' => []];

@@ -15,6 +15,7 @@ use Searchcraft\Api\Documents;
 use Searchcraft\Api\Federation;
 use Searchcraft\Api\Healthcheck;
 use Searchcraft\Api\Index;
+use Searchcraft\Api\Measure;
 use Searchcraft\Api\Search;
 use Searchcraft\Api\Stopwords;
 use Searchcraft\Api\Synonyms;
@@ -22,7 +23,7 @@ use Searchcraft\Api\Transactions;
 
 class Searchcraft
 {
-    public const VERSION = '0.7.5';
+    public const VERSION = '0.8.0';
     public const DEFAULT_API_ENDPOINT = 'http://localhost:8000';
 
     // API Key types
@@ -200,6 +201,24 @@ class Searchcraft
     }
 
     /**
+     * Measure operations for event ingestion and dashboard reporting.
+     *
+     * @return Measure
+     * @throws SearchcraftException
+     */
+    public function measure(): Measure
+    {
+        return new Measure(
+            $this->apiKey,
+            $this->apiEndpoint,
+            $this->httpClient,
+            $this->requestFactory,
+            $this->streamFactory,
+            $this->keyType
+        );
+    }
+
+    /**
      * Search operations
      *
      * @return Search
@@ -272,5 +291,4 @@ class Searchcraft
             $this->keyType
         );
     }
-
 }
