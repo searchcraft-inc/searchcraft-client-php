@@ -91,7 +91,7 @@ class Index extends Base
     public function updateIndex(string $indexName, array $options): array
     {
         $params = array_merge(['name' => $indexName], $options);
-        return $this->request('PUT', "/index/{$indexName}", [ 'index' => $params ] );
+        return $this->request('PUT', "/index/{$indexName}", [ 'index' => $params ]);
     }
 
     /**

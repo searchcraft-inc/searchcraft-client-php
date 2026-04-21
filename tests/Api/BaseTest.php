@@ -6,59 +6,9 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
-use Searchcraft\Api\Base;
 use Searchcraft\Exception\SearchcraftException;
-
-// Create a concrete implementation of the abstract Base class for testing
-class TestApi extends Base
-{
-    public function testRequest(string $method, string $path, array $params = [], array $headers = []): array
-    {
-        return $this->request($method, $path, $params, $headers);
-    }
-
-    public function testParseEventStream($stream, ?callable $onEvent = null): array
-    {
-        return $this->parseEventStream($stream, $onEvent);
-    }
-}
-
-/**
- * Minimal in-memory StreamInterface-ish stub that yields chunks from a list.
- *
- * Only implements the handful of methods parseEventStream calls:
- * rewind(), eof(), read().
- */
-class ChunkedStreamStub
-{
-    /** @var string[] */
-    private $chunks;
-    /** @var int */
-    private $cursor = 0;
-
-    public function __construct(array $chunks)
-    {
-        $this->chunks = array_values($chunks);
-    }
-
-    public function rewind(): void
-    {
-        $this->cursor = 0;
-    }
-
-    public function eof(): bool
-    {
-        return $this->cursor >= count($this->chunks);
-    }
-
-    public function read($_length): string
-    {
-        if ($this->eof()) {
-            return '';
-        }
-        return $this->chunks[$this->cursor++];
-    }
-}
+use Searchcraft\Tests\Helpers\ChunkedStreamStub;
+use Searchcraft\Tests\Helpers\TestApi;
 
 beforeEach(function () {
     $this->apiKey = 'test-api-key';

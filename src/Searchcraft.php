@@ -291,5 +291,4 @@ class Searchcraft
             $this->keyType
         );
     }
-
 }
