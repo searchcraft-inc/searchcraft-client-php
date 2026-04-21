@@ -16,6 +16,48 @@ class TestApi extends Base
     {
         return $this->request($method, $path, $params, $headers);
     }
+
+    public function testParseEventStream($stream, ?callable $onEvent = null): array
+    {
+        return $this->parseEventStream($stream, $onEvent);
+    }
+}
+
+/**
+ * Minimal in-memory StreamInterface-ish stub that yields chunks from a list.
+ *
+ * Only implements the handful of methods parseEventStream calls:
+ * rewind(), eof(), read().
+ */
+class ChunkedStreamStub
+{
+    /** @var string[] */
+    private $chunks;
+    /** @var int */
+    private $cursor = 0;
+
+    public function __construct(array $chunks)
+    {
+        $this->chunks = array_values($chunks);
+    }
+
+    public function rewind(): void
+    {
+        $this->cursor = 0;
+    }
+
+    public function eof(): bool
+    {
+        return $this->cursor >= count($this->chunks);
+    }
+
+    public function read($_length): string
+    {
+        if ($this->eof()) {
+            return '';
+        }
+        return $this->chunks[$this->cursor++];
+    }
 }
 
 beforeEach(function () {
@@ -192,6 +234,100 @@ test('Base handles invalid JSON responses', function () {
 
     expect(fn() => $this->api->testRequest('GET', $path))
         ->toThrow(SearchcraftException::class, 'Invalid JSON response from API');
+});
+
+test('Base::parseEventStream parses a single event with JSON data', function () {
+    $stream = new ChunkedStreamStub([
+        "event: delta\ndata: {\"content\":\"hi\"}\n\n",
+    ]);
+
+    $events = $this->api->testParseEventStream($stream);
+
+    expect($events)->toBe([
+        ['event' => 'delta', 'data' => ['content' => 'hi']],
+    ]);
+});
+
+test('Base::parseEventStream handles CRLF line endings', function () {
+    $stream = new ChunkedStreamStub([
+        "event: delta\r\ndata: ok\r\n\r\n",
+    ]);
+
+    $events = $this->api->testParseEventStream($stream);
+
+    expect($events)->toBe([
+        ['event' => 'delta', 'data' => 'ok'],
+    ]);
+});
+
+test('Base::parseEventStream coalesces multi-line data fields with \\n', function () {
+    $stream = new ChunkedStreamStub([
+        "event: msg\ndata: line1\ndata: line2\n\n",
+    ]);
+
+    $events = $this->api->testParseEventStream($stream);
+
+    expect($events)->toBe([
+        ['event' => 'msg', 'data' => "line1\nline2"],
+    ]);
+});
+
+test('Base::parseEventStream reassembles events split across chunk boundaries', function () {
+    $stream = new ChunkedStreamStub([
+        "event: delta\nda",
+        "ta: hel",
+        "lo\n\nevent: done\ndata: {\"n\":1}\n\n",
+    ]);
+
+    $events = $this->api->testParseEventStream($stream);
+
+    expect($events)->toBe([
+        ['event' => 'delta', 'data' => 'hello'],
+        ['event' => 'done', 'data' => ['n' => 1]],
+    ]);
+});
+
+test('Base::parseEventStream ignores comment lines starting with colon', function () {
+    $stream = new ChunkedStreamStub([
+        ": keep-alive\nevent: delta\ndata: ok\n\n",
+    ]);
+
+    $events = $this->api->testParseEventStream($stream);
+
+    expect($events)->toBe([
+        ['event' => 'delta', 'data' => 'ok'],
+    ]);
+});
+
+test('Base::parseEventStream invokes per-event callback as events arrive', function () {
+    $stream = new ChunkedStreamStub([
+        "event: metadata\ndata: {\"results_count\":1}\n\n",
+        "event: delta\ndata: {\"content\":\"hi\"}\n\n",
+        "event: done\ndata: {\"results_count\":1}\n\n",
+    ]);
+
+    $captured = [];
+    $this->api->testParseEventStream($stream, function (string $event, $data) use (&$captured) {
+        $captured[] = [$event, $data];
+    });
+
+    expect($captured)->toBe([
+        ['metadata', ['results_count' => 1]],
+        ['delta', ['content' => 'hi']],
+        ['done', ['results_count' => 1]],
+    ]);
+});
+
+test('Base::parseEventStream defaults event name to "message" when absent', function () {
+    $stream = new ChunkedStreamStub([
+        "data: hello\n\n",
+    ]);
+
+    $events = $this->api->testParseEventStream($stream);
+
+    expect($events)->toBe([
+        ['event' => 'message', 'data' => 'hello'],
+    ]);
 });
 
 test('Base handles request exceptions', function () {

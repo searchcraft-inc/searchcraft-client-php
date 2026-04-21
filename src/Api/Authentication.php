@@ -36,6 +36,22 @@ class Authentication extends Base
     }
 
     /**
+     * Get all keys for an index.
+     *
+     * Added in Searchcraft Engine 0.10.0.
+     *
+     * @param string $indexName The index name.
+     * @return array List of authentication keys scoped to the index,
+     *               decoded from JSON.
+     * @throws SearchcraftException On network failure, an invalid JSON
+     *                              response, or an HTTP status >= 400.
+     */
+    public function getIndexKeys(string $indexName): array
+    {
+        return $this->request('GET', "/auth/index/{$indexName}");
+    }
+
+    /**
      * Get all keys for an organization.
      *
      * @param string $organizationId The organization ID

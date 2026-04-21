@@ -403,6 +403,109 @@ $updatedFederation = $searchcraft->federation()->updateFederation('galaxy_news_f
 $result = $searchcraft->federation()->deleteFederation('old_federation');
 ```
 
+## AI Capabilities
+
+Requires Searchcraft Engine 0.10.0 or later.
+
+### Check AI Capabilities for an Index
+
+```php
+// Returns whether AI features are enabled and which pieces
+// (LLM provider, model, and search summary config) are configured.
+$capabilities = $searchcraft->index()->getCapabilities('blog');
+```
+
+### Streaming AI Search Summaries
+
+The index must have `ai_enabled: true` and a valid `ai.search_summary`
+configuration. The engine streams Server-Sent Events: one `metadata`
+event, any number of `delta` events with `content` chunks, and a final
+`done` event. `searchSummary()` returns every parsed event, and you may
+optionally pass a callback to react to events as they arrive.
+
+```php
+// Collect all events at once
+$events = $searchcraft->search()->searchSummary('blog', 'search term', [
+    'limit' => 5,
+    'mode'  => 'fuzzy',
+]);
+
+// Or stream them via a callback
+$summaryText = '';
+$searchcraft->search()->searchSummary(
+    'blog',
+    'search term',
+    ['limit' => 5],
+    function (string $event, $data) use (&$summaryText) {
+        if ($event === 'delta' && isset($data['content'])) {
+            $summaryText .= $data['content'];
+        }
+    }
+);
+```
+
+## Authentication Operations
+
+### Get Keys for an Index
+
+```php
+// Returns all authentication keys scoped to the given index.
+$keys = $searchcraft->authentication()->getIndexKeys('blog');
+```
+
+## Measure Operations
+
+The Measure API is primarily used by SDKs and CMS integrations to capture
+search usage metrics and retrieve dashboard aggregates.
+
+### Track a Single Event
+
+```php
+$searchcraft->measure()->trackEvent([
+    'event_name' => 'document_clicked',
+    'properties' => [
+        'searchcraft_index_names' => ['products'],
+        'external_document_id' => 'sku-42',
+        'document_position' => 2,
+    ],
+    'user' => [
+        'user_id'   => 'user-123',
+        'user_type' => 'authenticated',
+    ],
+]);
+```
+
+### Track a Batch of Events
+
+```php
+$searchcraft->measure()->trackBatch([
+    [
+        'event_name' => 'search_completed',
+        'properties' => ['searchcraft_index_names' => ['products']],
+        'user'       => ['user_id' => 'user-123'],
+    ],
+    // ...
+]);
+```
+
+### Dashboard Metrics
+
+```php
+// All three accept the same optional filter set: organization_id,
+// application_id, index_names, user_id, user_type, session_id,
+// event_name, date_start, date_end, granularity, rpp, page.
+$summary    = $searchcraft->measure()->getDashboardSummary(['organization_id' => '4']);
+$conversion = $searchcraft->measure()->getDashboardConversion(['date_start' => '2026-01-01']);
+$usage      = $searchcraft->measure()->getDashboardUsage(['granularity' => 'day']);
+```
+
+## Compatibility
+
+| Client version | Searchcraft Engine |
+| -------------- | ------------------ |
+| 0.8.x          | 0.10.x             |
+| 0.7.x          | 0.7.9 - 0.9.x      |
+
 ## Error Handling
 
 All operations should be wrapped in a try/catch block to handle errors:

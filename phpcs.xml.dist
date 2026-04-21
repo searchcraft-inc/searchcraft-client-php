@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<ruleset name="searchcraft-client-php">
+    <description>
+        Coding standard for the Searchcraft PHP client. The project
+        follows PSR-12 exclusively — no PEAR-style file/class header
+        tags (@category, @package, @author, @license, @link) are
+        required. If phpcs reports MissingCategoryTag or similar, the
+        wrong --standard flag is being passed; phpcs should pick up
+        this file automatically when run from the repo root.
+    </description>
+
+    <!-- Default paths to lint when no argument is passed on the CLI. -->
+    <file>src</file>
+    <file>tests</file>
+
+    <!-- Paths to skip entirely. -->
+    <exclude-pattern>vendor/*</exclude-pattern>
+    <exclude-pattern>tests/bootstrap.php</exclude-pattern>
+    <exclude-pattern>examples/*</exclude-pattern>
+    <exclude-pattern>demo*.php</exclude-pattern>
+
+    <rule ref="PSR12"/>
+</ruleset>

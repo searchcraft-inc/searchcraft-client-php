@@ -134,6 +134,48 @@ test('Index::getIndexStats', function () {
     expect($result)->toBe($responseData);
 });
 
+test('Index::getCapabilities', function () {
+    $indexName = 'test-index';
+    $responseData = [
+        'ai' => [
+            'enabled' => true,
+            'searchSummaryConfigured' => true,
+            'llmProviderConfigured' => true,
+            'llmModelConfigured' => true,
+        ],
+    ];
+    $responseJson = json_encode($responseData);
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->with('GET', $this->apiEndpoint . "/index/{$indexName}/capabilities")
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->with($this->request)
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(200);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn($responseJson);
+
+    $result = $this->index->getCapabilities($indexName);
+
+    expect($result)->toBe($responseData);
+});
+
 test('Index::createIndex', function () {
     $indexName = 'new-index';
     $options = [
