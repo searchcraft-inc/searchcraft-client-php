@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.1
+
+- New: `Measure::getStatus()` wraps the unauthenticated `GET /measure/status`
+  and returns the server's analytics status.
+
 ## 0.8.0
 
 Support for Searchcraft Engine 0.10.0.

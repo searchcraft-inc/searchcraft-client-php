@@ -75,6 +75,28 @@ class Measure extends Base
     }
 
     /**
+     * Check whether Measure analytics are enabled on the server.
+     *
+     * Uses GET /measure/status. This endpoint is unauthenticated — it
+     * works with or without an Authorization header, like
+     * {@see \Searchcraft\Api\Healthcheck::check}.
+     * When analytics are disabled, all other `/measure/*` endpoints are
+     * no-ops, so callers can use this to decide whether issuing those
+     * requests is worthwhile.
+     *
+     * @return array Status payload, decoded from JSON. Contains an
+     *               `enabled` bool — `true` when ClickHouse-backed
+     *               analytics are configured on the server, `false`
+     *               otherwise.
+     * @throws SearchcraftException On network failure, an invalid JSON
+     *                              response, or an HTTP status >= 400.
+     */
+    public function getStatus(): array
+    {
+        return $this->request('GET', '/measure/status');
+    }
+
+    /**
      * Get the dashboard summary metrics.
      *
      * Uses GET /measure/dashboard/summary. Supply any of the supported

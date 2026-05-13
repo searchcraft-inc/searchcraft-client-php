@@ -104,6 +104,27 @@ test('Measure::trackBatch posts to /measure/batch', function () {
     expect($result)->toBe(['status' => 'ok']);
 });
 
+test('Measure::getStatus gets /measure/status', function () {
+    $responseData = ['enabled' => true];
+    $responseJson = json_encode($responseData);
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->with('GET', $this->apiEndpoint . '/measure/status')
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')->andReturn($this->request);
+    $this->httpClient->shouldReceive('sendRequest')->once()->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')->once()->andReturn($this->stream);
+    $this->response->shouldReceive('getStatusCode')->once()->andReturn(200);
+    $this->stream->shouldReceive('__toString')->once()->andReturn($responseJson);
+
+    $result = $this->measure->getStatus();
+
+    expect($result)->toBe($responseData);
+});
+
 test('Measure::getDashboardSummary forwards filters as query string', function () {
     $filters = [
         'organization_id' => '4',
