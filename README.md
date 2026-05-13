@@ -458,6 +458,18 @@ $keys = $searchcraft->authentication()->getIndexKeys('blog');
 The Measure API is primarily used by SDKs and CMS integrations to capture
 search usage metrics and retrieve dashboard aggregates.
 
+### Check Whether Analytics Are Enabled
+
+```php
+// Unauthenticated — works with or without an API key. Returns
+// ['enabled' => bool]; when false, the other measure() endpoints are
+// no-ops on the server.
+$status = $searchcraft->measure()->getStatus();
+if ($status['enabled']) {
+    // ... track events / query dashboards
+}
+```
+
 ### Track a Single Event
 
 ```php

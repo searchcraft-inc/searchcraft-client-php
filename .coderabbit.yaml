@@ -3,7 +3,7 @@ language: "en-US"
 reviews:
   auto_review:
     enabled: true
-    base_branches: ["main"]
+    base_branches: ["development"]
     ignore_title_keywords:
       - "WIP"
       - "DO NOT MERGE"
