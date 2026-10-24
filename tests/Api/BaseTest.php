@@ -300,3 +300,145 @@ test('Base handles request exceptions', function () {
     expect(fn() => $this->api->testRequest('GET', $path))
         ->toThrow(SearchcraftException::class, 'API request failed: ' . $exceptionMessage);
 });
+
+test('Base::request preserves the status code and error data of an API error', function () {
+    $path = '/test-path';
+    $errorJson = json_encode(['status' => 403, 'data' => 'Insufficient permissions']);
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->with('GET', $this->apiEndpoint . $path)
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(403);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn($errorJson);
+
+    try {
+        $this->api->testRequest('GET', $path);
+        expect(false)->toBeTrue('Expected a SearchcraftException to be thrown');
+    } catch (SearchcraftException $e) {
+        expect($e->getMessage())->toBe('Insufficient permissions');
+        expect($e->getCode())->toBe(403);
+        expect($e->getErrorData())->toBe([
+            'message' => 'Insufficient permissions',
+            'code' => 403,
+        ]);
+    }
+});
+
+test('Base::request reports an error status even when the body is not JSON', function () {
+    $path = '/test-path';
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->with('GET', $this->apiEndpoint . $path)
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(403);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn('Forbidden');
+
+    try {
+        $this->api->testRequest('GET', $path);
+        expect(false)->toBeTrue('Expected a SearchcraftException to be thrown');
+    } catch (SearchcraftException $e) {
+        expect($e->getMessage())->toBe('Forbidden');
+        expect($e->getCode())->toBe(403);
+    }
+});
+
+test('Base::request reports an error status when the body is empty', function () {
+    $path = '/test-path';
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(500);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn('');
+
+    try {
+        $this->api->testRequest('GET', $path);
+        expect(false)->toBeTrue('Expected a SearchcraftException to be thrown');
+    } catch (SearchcraftException $e) {
+        expect($e->getMessage())->toBe('Unknown error');
+        expect($e->getCode())->toBe(500);
+    }
+});
+
+test('Base::request rejects a successful response whose JSON is not an object', function () {
+    $path = '/test-path';
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(200);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn('"just a string"');
+
+    expect(fn() => $this->api->testRequest('GET', $path))
+        ->toThrow(SearchcraftException::class, 'Invalid JSON response from API');
+});

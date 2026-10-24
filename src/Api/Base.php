@@ -111,6 +111,10 @@ abstract class Base
         try {
             $response = $this->httpClient->sendRequest($request);
             return $this->handleResponse($response);
+        } catch (SearchcraftException $e) {
+            // Already a typed API error — re-throwing it verbatim preserves the
+            // HTTP status code and error data that handleResponse() decoded.
+            throw $e;
         } catch (\Throwable $e) {
             throw new SearchcraftException('API request failed: ' . $e->getMessage(), 0, $e);
         }
@@ -118,6 +122,12 @@ abstract class Base
 
     /**
      * Handle API response
+     *
+     * An error status is resolved before the body is required to be valid
+     * JSON, so that a failure carrying an empty, plain-text, or non-object
+     * body still raises an exception whose code is the HTTP status rather
+     * than a generic decoding error. This matches how
+     * {@see self::streamRequest()} treats error responses.
      *
      * @param ResponseInterface $response
      * @return array
@@ -129,13 +139,18 @@ abstract class Base
         $statusCode = $response->getStatusCode();
 
         $data = json_decode($body, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new SearchcraftException('Invalid JSON response from API');
-        }
+        $decoded = json_last_error() === JSON_ERROR_NONE;
 
         if ($statusCode >= 400) {
+            if (!$decoded || !is_array($data)) {
+                $data = ['error' => ['message' => $body !== '' ? $body : 'Unknown error']];
+            }
+
             throw SearchcraftException::fromApiResponse($data, $statusCode);
+        }
+
+        if (!$decoded || !is_array($data)) {
+            throw new SearchcraftException('Invalid JSON response from API');
         }
 
         return $data;
