@@ -105,6 +105,11 @@ class Measure extends Base
      * `date_start`, `date_end`, `granularity`, `rpp`, `page`). Unknown keys
      * are dropped before the query string is built.
      *
+     * `index_names` may be given as an array of index names; it is sent
+     * pipe-delimited. `date_start` and `date_end` are Unix timestamps in
+     * seconds, and `granularity` is one of `minutes`, `hours`, `days`,
+     * `weeks`, `months`, or `years`.
+     *
      * @param array $filters Optional associative array of query filters.
      *                       Unknown keys are dropped silently.
      * @return array Dashboard summary data, decoded from JSON.
@@ -163,17 +168,34 @@ class Measure extends Base
     }
 
     /**
-     * Reduce a filter array to the keys the engine actually accepts.
+     * Reduce a filter array to the keys the engine actually accepts and
+     * normalise their wire representation.
+     *
+     * `index_names` is sent pipe-delimited (`a|b|c`), which is the only form
+     * the engine parses. An array supplied for that key is joined here; a
+     * string is passed through untouched. An empty array is dropped so the
+     * filter is omitted rather than sent blank.
      *
      * @param array $filters Raw caller-supplied filter array.
      * @return array A new array containing only the keys listed in
-     *               {@see self::DASHBOARD_FILTER_KEYS}.
+     *               {@see self::DASHBOARD_FILTER_KEYS}, with `index_names`
+     *               collapsed to a pipe-delimited string.
      */
     private function filterDashboardQuery(array $filters): array
     {
-        return array_intersect_key(
+        $query = array_intersect_key(
             $filters,
             array_flip(self::DASHBOARD_FILTER_KEYS)
         );
+
+        if (isset($query['index_names']) && is_array($query['index_names'])) {
+            if (empty($query['index_names'])) {
+                unset($query['index_names']);
+            } else {
+                $query['index_names'] = implode('|', $query['index_names']);
+            }
+        }
+
+        return $query;
     }
 }

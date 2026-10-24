@@ -209,3 +209,79 @@ test('Measure::getDashboardUsage forwards filters as query string', function () 
 
     expect($result)->toBe(['rows' => []]);
 });
+
+test('Measure::getDashboardSummary sends index_names pipe-delimited', function () {
+    $filters = [
+        'index_names' => ['products', 'articles'],
+        'granularity' => 'days',
+    ];
+
+    $expectedQuery = http_build_query([
+        'index_names' => 'products|articles',
+        'granularity' => 'days',
+    ]);
+    $expectedUrl = $this->apiEndpoint . '/measure/dashboard/summary?' . $expectedQuery;
+
+    $responseJson = json_encode(['totals' => []]);
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->with('GET', $expectedUrl)
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')->andReturn($this->request);
+    $this->httpClient->shouldReceive('sendRequest')->once()->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')->once()->andReturn($this->stream);
+    $this->response->shouldReceive('getStatusCode')->once()->andReturn(200);
+    $this->stream->shouldReceive('__toString')->once()->andReturn($responseJson);
+
+    $result = $this->measure->getDashboardSummary($filters);
+
+    expect($result)->toBe(['totals' => []]);
+});
+
+test('Measure::getDashboardUsage drops an empty index_names filter', function () {
+    $expectedUrl = $this->apiEndpoint . '/measure/dashboard/usage?' . http_build_query(['page' => 1]);
+
+    $responseJson = json_encode(['rows' => []]);
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->with('GET', $expectedUrl)
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')->andReturn($this->request);
+    $this->httpClient->shouldReceive('sendRequest')->once()->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')->once()->andReturn($this->stream);
+    $this->response->shouldReceive('getStatusCode')->once()->andReturn(200);
+    $this->stream->shouldReceive('__toString')->once()->andReturn($responseJson);
+
+    $result = $this->measure->getDashboardUsage(['index_names' => [], 'page' => 1]);
+
+    expect($result)->toBe(['rows' => []]);
+});
+
+test('Measure::getDashboardConversion passes a pre-joined index_names string through', function () {
+    $expectedUrl = $this->apiEndpoint . '/measure/dashboard/conversion?'
+        . http_build_query(['index_names' => 'products|articles']);
+
+    $responseJson = json_encode(['rows' => []]);
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->with('GET', $expectedUrl)
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')->andReturn($this->request);
+    $this->httpClient->shouldReceive('sendRequest')->once()->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')->once()->andReturn($this->stream);
+    $this->response->shouldReceive('getStatusCode')->once()->andReturn(200);
+    $this->stream->shouldReceive('__toString')->once()->andReturn($responseJson);
+
+    $result = $this->measure->getDashboardConversion(['index_names' => 'products|articles']);
+
+    expect($result)->toBe(['rows' => []]);
+});
