@@ -101,6 +101,93 @@ $results = $searchcraft->search()->query('my_index', 'search term', ['mode' => '
 // Exact search
 $results = $searchcraft->search()->query('my_index', 'search term', ['mode' => 'exact']);
 
+// Dynamic search
+$results = $searchcraft->search()->query('my_index', 'search term', ['mode' => 'dynamic']);
+
+```
+
+`time_taken` on the response is reported in seconds. `limit` defaults to 20
+and is rejected client-side above 200.
+
+### Scoping a Search to Specific Fields
+
+`fields` restricts a query to particular fields instead of the index's
+configured `search_fields`. Pass a field name, a list of names, or a map of
+name to boost. The engine honors it for `fuzzy` and `term` clauses.
+
+```php
+// Single field
+$results = $searchcraft->search()->query('my_index', 'search term', [
+    'fields' => 'title'
+]);
+
+// Several fields, with per-field boosts
+$results = $searchcraft->search()->query('my_index', 'search term', [
+    'fields' => ['title' => 2.0, 'body' => 1.0]
+]);
+```
+
+### Boolean Occurrence
+
+`occur` sets how the clause participates in matching. It is placed beside the
+mode key inside the query object for you.
+
+```php
+$results = $searchcraft->search()->query('my_index', 'search term', [
+    'mode'  => 'exact',
+    'occur' => 'must',   // 'should' (default), 'must', or 'mustnot'
+]);
+```
+
+`occur` and `fields` both describe a single clause, so they apply to string
+queries only. Passing either alongside an array query throws a
+`SearchcraftException` — set them inside the clause itself in that case.
+
+### Additional Search Options
+
+```php
+$results = $searchcraft->search()->query('my_index', 'search term', [
+    // Minimum number of optional (`should`) clauses a document must match.
+    // Added in Searchcraft Engine 0.11.0.
+    'minimum_number_should_match' => 2,
+
+    // Datetime field used to decay relevance for older documents,
+    // overriding the index's own setting for this query.
+    'time_decay_field' => 'publishedAt',
+
+    // Relevance weight for this index within a federation search.
+    'index_weighting' => 1.5,
+
+    // Ordering by a field means hits come back with a null score.
+    'order_by' => 'publishedAt',
+    'sort' => 'desc',
+]);
+```
+
+### Complex Queries
+
+Pass an array instead of a string to build a multi-clause query. It is
+forwarded to the engine verbatim, which is how you reach the query kinds that
+have no string shorthand. Each clause takes an `occur` of `should`, `must`, or
+`mustnot`, and a `fields` selector belongs inside the clause rather than in the
+options array.
+
+```php
+$results = $searchcraft->search()->query('my_index', [
+    ['occur' => 'must', 'fuzzy' => ['ctx' => 'breaking news']],
+
+    // A single unparsed term against one field — useful for programmatic
+    // filters.
+    ['occur' => 'must', 'term' => ['ctx' => 'published', 'fields' => 'status']],
+
+    ['occur' => 'mustnot', 'exact' => ['ctx' => 'category:opinion']],
+]);
+
+// Find documents similar to a reference document. `ctx` is the internal
+// Searchcraft `document_id`, as returned on each search hit.
+$results = $searchcraft->search()->query('my_index', [
+    'more-like-this' => ['ctx' => '1a2b3c4d']
+]);
 ```
 
 ### Federation Search
@@ -144,46 +231,57 @@ $indexDetails = $searchcraft->index()->getIndex('products');
 
 ```php
 $newIndex = $searchcraft->index()->createIndex('blog', [
-    'index' => [
-        'name' => 'blog',
-        'language' => 'en',
-        'search_fields' => ['title', 'content', 'tags'],
-        'fields' => [
-            'id' => [
-                'type' => 'text',
-                'required' => true,
-                'stored' => true,
-                'indexed' => false
-            ],
-            'title' => [
-                'type' => 'text',
-                'stored' => true
-            ],
-            'content' => [
-                'type' => 'text',
-                'stored' => true
-            ],
-            'tags' => [
-                'type' => 'text',
-                'stored' => true,
-                'multi' => true
-            ],
-            'category' => [
-                'type' => 'facet',
-                'stored' => true
-            ],
-            'publishedAt' => [
-                'type' => 'datetime',
-                'fast' => true,
-                'stored' => true,
-                'indexed' => true
-            ]
+    'language' => 'en',
+    'search_fields' => ['title', 'content', 'tags'],
+    'fields' => [
+        'id' => [
+            'type' => 'text',
+            'required' => true,
+            'stored' => true,
+            'indexed' => false
         ],
-        'weight_multipliers' => [
-            'title' => 2.0,
-            'tags' => 1.0,
-            'content' => 0.6
+        'title' => [
+            'type' => 'text',
+            'stored' => true
+        ],
+        'content' => [
+            'type' => 'text',
+            'stored' => true
+        ],
+        'tags' => [
+            'type' => 'text',
+            'stored' => true,
+            'multi' => true
+        ],
+        'category' => [
+            'type' => 'facet',
+            'stored' => true
+        ],
+        'publishedAt' => [
+            'type' => 'datetime',
+            'fast' => true,
+            'stored' => true,
+            'indexed' => true
+        ],
+        // json fields store nested objects and are queried via dotted
+        // paths (e.g. metadata.author:tolkien). tokenizer and
+        // expand_dots are json-specific options.
+        'metadata' => [
+            'type' => 'json',
+            'stored' => true,
+            'indexed' => true,
+            'tokenizer' => 'raw',
+            'expand_dots' => true
         ]
+    ],
+    'weight_multipliers' => [
+        'title' => 2.0,
+        'tags' => 1.0,
+        'content' => 0.6
+    ],
+    // Optional: run an enrichment pipeline over documents before indexing.
+    'ingestion' => [
+        'enrichment_pipeline' => 'my-pipeline'
     ]
 ]);
 ```
@@ -194,53 +292,55 @@ Note if you are not adding, removing or changing properties of schema fields wil
 
 ```php
 $updatedIndex = $searchcraft->index()->updateIndex('blog', [
-    'index' => [
-        'name' => 'blog',
-        'language' => 'en',
-        'search_fields' => ['title', 'content', 'tags', 'summary'],
-        'fields' => [
-            'id' => [
-                'type' => 'text',
-                'required' => true,
-                'stored' => true,
-                'indexed' => false
-            ],
-            'title' => [
-                'type' => 'text',
-                'stored' => true
-            ],
-            'content' => [
-                'type' => 'text',
-                'stored' => true
-            ],
-            'summary' => [
-                'type' => 'text',
-                'stored' => true
-            ],
-            'tags' => [
-                'type' => 'text',
-                'stored' => true,
-                'multi' => true
-            ],
-            'category' => [
-                'type' => 'facet',
-                'stored' => true
-            ],
-            'publishedAt' => [
-                'type' => 'datetime',
-                'fast' => true,
-                'stored' => true,
-                'indexed' => true
-            ]
+    'language' => 'en',
+    'search_fields' => ['title', 'content', 'tags', 'summary'],
+    'fields' => [
+        'id' => [
+            'type' => 'text',
+            'required' => true,
+            'stored' => true,
+            'indexed' => false
         ],
-        'weight_multipliers' => [
-            'title' => 2.0,
-            'content' => 1.0,
-            'summary' => 1.5
+        'title' => [
+            'type' => 'text',
+            'stored' => true
+        ],
+        'content' => [
+            'type' => 'text',
+            'stored' => true
+        ],
+        'summary' => [
+            'type' => 'text',
+            'stored' => true
+        ],
+        'tags' => [
+            'type' => 'text',
+            'stored' => true,
+            'multi' => true
+        ],
+        'category' => [
+            'type' => 'facet',
+            'stored' => true
+        ],
+        'publishedAt' => [
+            'type' => 'datetime',
+            'fast' => true,
+            'stored' => true,
+            'indexed' => true
         ]
+    ],
+    'weight_multipliers' => [
+        'title' => 2.0,
+        'content' => 1.0,
+        'summary' => 1.5
     ]
 ]);
 ```
+
+`updateIndex` is a whole-schema replacement, so anything you leave out reverts
+to its default. It is also the only way to change `fields` or to clear
+`search_fields`, `weight_multipliers` or `language` — `patchIndex` cannot do
+either.
 
 ### Patch Index
 
@@ -258,6 +358,24 @@ $patchedIndex = $searchcraft->index()->patchIndex('blog', [
     'auto_commit_delay' => 2,
     'exclude_stop_words' => true
 ]);
+```
+
+`fields` is not patchable — the engine carries the existing schema over
+verbatim and silently ignores a `fields` key here. `search_fields`,
+`weight_multipliers` and `language` cannot be cleared either, since the engine
+reads an empty value as "leave unchanged". Use `updateIndex` for both.
+`time_decay_field` can be cleared by passing an empty string.
+
+### Index Statistics
+
+```php
+// Document count for a single index
+$stats = $searchcraft->index()->getIndexStats('blog');
+
+// Aggregate statistics for every index the key can reach. The response
+// carries index_count, total_document_count, and an indices list mapping
+// each index name to its own document_count.
+$allStats = $searchcraft->index()->getStats();
 ```
 
 ### Delete Index
@@ -315,6 +433,24 @@ $document = $searchcraft->index()->getDocument('products', '1');
 $result = $searchcraft->index()->deleteDocuments('products', ['1', '2']);
 ```
 
+## Stopword Operations
+
+Stopwords are excluded from indexing and from queries when the index has
+`exclude_stop_words` enabled.
+
+```php
+// The index's custom stopword list
+$stopwords = $searchcraft->stopwords()->getStopwords('blog');
+
+// The engine's built-in defaults for the index's language, as distinct
+// from the custom list above
+$defaults = $searchcraft->stopwords()->getDefaultStopwords('blog');
+
+$searchcraft->stopwords()->addStopwords('blog', ['whilst', 'thereof']);
+$searchcraft->stopwords()->deleteStopwords('blog', ['thereof']);
+$searchcraft->stopwords()->deleteAllStopwords('blog');
+```
+
 ## Federation Operations
 
 Federation operations allow you to manage federations that combine multiple indexes for cross-index search. Federation administration operations require an admin key, while federation search requires a read key.
@@ -338,6 +474,20 @@ $federation = $searchcraft->federation()->getFederation('galaxy_news_federation'
 ```php
 // Get all federations for a specific organization
 $organizationFederations = $searchcraft->federation()->getFederationsByOrganization('4');
+```
+
+### List a Federation's Indexes
+
+```php
+// The names of the indexes belonging to a federation
+$indexNames = $searchcraft->federation()->listFederationIndexes('galaxy_news_federation');
+```
+
+### Federation Statistics
+
+```php
+// The federation's num_docs total, plus per-index num_docs and space_usage
+$stats = $searchcraft->federation()->getFederationStats('galaxy_news_federation');
 ```
 
 ### Create Federation
@@ -453,6 +603,32 @@ $searchcraft->search()->searchSummary(
 $keys = $searchcraft->authentication()->getIndexKeys('blog');
 ```
 
+### Check a Key's Permissions
+
+The engine stores key permissions as a bitmask rather than a fixed set of
+levels. Combine the `Searchcraft\Permissions` constants with the bitwise OR
+operator. A key that simply lacks the permission is answered with a 403, which
+is reported as `false` rather than raised as an exception.
+
+```php
+use Searchcraft\Permissions;
+
+$canReadAnalytics = $searchcraft->authentication()
+    ->checkKeyPermissions(Permissions::READ_ANALYTICS);
+
+$canManageContent = $searchcraft->authentication()
+    ->checkKeyPermissions(Permissions::MODIFY_DOCUMENTS | Permissions::MODIFY_INDEX);
+
+// Presets are available for the conventional key shapes.
+$isAdmin = $searchcraft->authentication()
+    ->checkKeyPermissions(Permissions::PRESET_ADMIN);
+```
+
+Individual bits: `SEARCH`, `MODIFY_SYNONYMS`, `MODIFY_STOP_WORDS`,
+`MODIFY_DOCUMENTS`, `MODIFY_INDEX`, `MODIFY_AUTH`, `LLM_RAG_SUMMARIES`,
+`LLM_EXPANDED_KEYWORD_SEARCH`, `READ_ANALYTICS`. Presets: `PRESET_READ`,
+`PRESET_INGEST`, `PRESET_ADMIN`, `PRESET_SUPER_USER`.
+
 ## Measure Operations
 
 The Measure API is primarily used by SDKs and CMS integrations to capture
@@ -507,15 +683,25 @@ $searchcraft->measure()->trackBatch([
 // application_id, index_names, user_id, user_type, session_id,
 // event_name, date_start, date_end, granularity, rpp, page.
 $summary    = $searchcraft->measure()->getDashboardSummary(['organization_id' => '4']);
-$conversion = $searchcraft->measure()->getDashboardConversion(['date_start' => '2026-01-01']);
-$usage      = $searchcraft->measure()->getDashboardUsage(['granularity' => 'day']);
+$conversion = $searchcraft->measure()->getDashboardConversion(['date_start' => 1767225600]);
+$usage      = $searchcraft->measure()->getDashboardUsage(['granularity' => 'days']);
+
+// index_names may be given as an array; it is sent pipe-delimited.
+$summary = $searchcraft->measure()->getDashboardSummary([
+    'index_names' => ['products', 'articles'],
+    'granularity' => 'weeks',
+]);
 ```
+
+`date_start` and `date_end` are Unix timestamps in seconds. `granularity` is
+one of `minutes`, `hours`, `days`, `weeks`, `months`, or `years`.
 
 ## Compatibility
 
 | Client version | Searchcraft Engine |
 | -------------- | ------------------ |
-| 0.8.x          | 0.10.x             |
+| 0.8.2          | 0.11.x             |
+| 0.8.0 - 0.8.1  | 0.10.x             |
 | 0.7.x          | 0.7.9 - 0.9.x      |
 
 ## Error Handling
