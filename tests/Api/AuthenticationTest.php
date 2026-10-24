@@ -7,6 +7,8 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
 use Searchcraft\Api\Authentication;
+use Searchcraft\Exception\SearchcraftException;
+use Searchcraft\Permissions;
 
 beforeEach(function () {
     $this->apiKey = 'test-api-key';
@@ -407,4 +409,101 @@ test('Authentication::updateKey', function () {
     $result = $this->auth->updateKey($key, $keyConfig);
 
     expect($result)->toBe($responseData);
+});
+
+test('Authentication::checkKeyPermissions returns true when the key carries the bits', function () {
+    $flags = Permissions::SEARCH | Permissions::READ_ANALYTICS;
+    $responseJson = json_encode(['status' => 200, 'data' => 'ok']);
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->with('GET', $this->apiEndpoint . "/auth/key/check/{$flags}")
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->with($this->request)
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(200);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn($responseJson);
+
+    expect($this->auth->checkKeyPermissions($flags))->toBeTrue();
+});
+
+test('Authentication::checkKeyPermissions returns false on a 403 rather than throwing', function () {
+    $flags = Permissions::MODIFY_AUTH;
+    $responseJson = json_encode(['status' => 403, 'data' => 'Insufficient permissions']);
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->with('GET', $this->apiEndpoint . "/auth/key/check/{$flags}")
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->with($this->request)
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(403);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn($responseJson);
+
+    expect($this->auth->checkKeyPermissions($flags))->toBeFalse();
+});
+
+test('Authentication::checkKeyPermissions rethrows non-403 errors', function () {
+    $flags = Permissions::SEARCH;
+    $responseJson = json_encode(['status' => 500, 'data' => 'Internal error']);
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->with('GET', $this->apiEndpoint . "/auth/key/check/{$flags}")
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->with($this->request)
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(500);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn($responseJson);
+
+    expect(fn() => $this->auth->checkKeyPermissions($flags))
+        ->toThrow(SearchcraftException::class, 'Internal error');
 });

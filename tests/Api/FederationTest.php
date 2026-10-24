@@ -266,3 +266,79 @@ test('Federation::deleteFederation', function () {
 
     expect($result)->toBe($responseData);
 });
+
+test('Federation::listFederationIndexes', function () {
+    $federationName = 'test-federation';
+    $responseData = ['data' => ['first-index', 'second-index']];
+    $responseJson = json_encode($responseData);
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->with('GET', $this->apiEndpoint . "/federation/{$federationName}/indices")
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->with($this->request)
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(200);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn($responseJson);
+
+    $result = $this->federation->listFederationIndexes($federationName);
+
+    expect($result)->toBe($responseData);
+});
+
+test('Federation::getFederationStats', function () {
+    $federationName = 'test-federation';
+    $responseData = [
+        'federation_name' => $federationName,
+        'num_docs' => 42,
+        'indices' => [
+            ['index_name' => 'first-index', 'num_docs' => 42, 'space_usage' => 1024],
+        ],
+    ];
+    $responseJson = json_encode($responseData);
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->with('GET', $this->apiEndpoint . "/federation/{$federationName}/stats")
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->with($this->request)
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(200);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn($responseJson);
+
+    $result = $this->federation->getFederationStats($federationName);
+
+    expect($result)->toBe($responseData);
+});

@@ -191,3 +191,38 @@ test('Stopwords::deleteAllStopwords', function () {
 
     expect($result)->toBe($responseData);
 });
+
+test('Stopwords::getDefaultStopwords', function () {
+    $indexName = 'test-index';
+    $responseData = ['data' => ['a', 'an', 'the']];
+    $responseJson = json_encode($responseData);
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->with('GET', $this->apiEndpoint . "/index/{$indexName}/stopwords/default")
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->with($this->request)
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(200);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn($responseJson);
+
+    $result = $this->stopwords->getDefaultStopwords($indexName);
+
+    expect($result)->toBe($responseData);
+});

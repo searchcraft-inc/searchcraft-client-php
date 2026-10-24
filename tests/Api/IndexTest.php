@@ -361,3 +361,44 @@ test('Index::deleteIndex', function () {
 
     expect($result)->toBe($responseData);
 });
+
+test('Index::getStats gets /index/stats for all indexes', function () {
+    $responseData = [
+        'index_count' => 2,
+        'total_document_count' => 30,
+        'indices' => [
+            ['first-index' => ['document_count' => 10]],
+            ['second-index' => ['document_count' => 20]],
+        ],
+    ];
+    $responseJson = json_encode($responseData);
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->with('GET', $this->apiEndpoint . '/index/stats')
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->with($this->request)
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(200);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn($responseJson);
+
+    $result = $this->index->getStats();
+
+    expect($result)->toBe($responseData);
+});

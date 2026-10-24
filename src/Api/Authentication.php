@@ -98,6 +98,37 @@ class Authentication extends Base
     }
 
     /**
+     * Check whether the configured key carries all of the given permission
+     * bits.
+     *
+     * Uses GET /auth/key/check/:permission. A key that simply lacks the
+     * permission is answered with a 403, which is reported here as `false`
+     * rather than raised as an exception; every other error status still
+     * throws.
+     *
+     * @param int $permissionFlags A bitmask built from the
+     *                             {@see \Searchcraft\Permissions} constants,
+     *                             combined with bitwise OR.
+     * @return bool True when the key carries every requested bit.
+     * @throws SearchcraftException On network failure, an invalid JSON
+     *                              response, or an HTTP status >= 400 other
+     *                              than 403.
+     */
+    public function checkKeyPermissions(int $permissionFlags): bool
+    {
+        try {
+            $this->request('GET', "/auth/key/check/{$permissionFlags}");
+            return true;
+        } catch (SearchcraftException $e) {
+            if ($e->getCode() === 403) {
+                return false;
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
      * Get a specific authentication key.
      *
      * @param string $key The authentication key
