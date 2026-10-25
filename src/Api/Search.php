@@ -13,18 +13,83 @@ use Searchcraft\Validators;
 class Search extends Base
 {
     /**
+     * Query modes accepted for string queries.
+     *
+     * Anything else supplied as `mode` falls back to `fuzzy`.
+     *
+     * @var string[]
+     */
+    private const QUERY_MODES = ['fuzzy', 'exact', 'dynamic'];
+
+    /**
+     * Occur modes accepted for string queries.
+     *
+     * @var string[]
+     */
+    private const OCCUR_MODES = ['should', 'must', 'mustnot'];
+
+    /**
+     * Option keys consumed while building the payload rather than copied to
+     * the top level of the request verbatim.
+     *
+     * @var string[]
+     */
+    private const RESERVED_OPTIONS = [
+        'limit',
+        'offset',
+        'order_by',
+        'sort',
+        'mode',
+        'fields',
+        'occur',
+    ];
+
+    /**
      * Perform a search query on an index.
+     *
+     * A string `$query` is wrapped in a single clause of the kind named by
+     * `$options['mode']`. An array `$query` is forwarded to the engine
+     * verbatim, which is how you reach the multi-clause and non-string query
+     * kinds the engine supports: `fuzzy`, `exact`, `dynamic`, `term` (a
+     * single unparsed term against one field) and `more-like-this` (whose
+     * `ctx` is a document's internal `document_id`). Each clause in a
+     * multi-clause query may carry `occur` of `should`, `must`, or
+     * `mustnot`.
+     *
+     * The `occur` and `fields` options describe a single clause, so they
+     * apply to string queries only. Supplying either alongside an array
+     * query raises a {@see SearchcraftException} rather than being dropped —
+     * set them inside the clause itself in that case.
      *
      * @param string $indexName The name of the index to search
      * @param string|array $query The search query string or complex query object
      * @param array $options Search options including:
-     *   - limit: Maximum number of results to return (default: 20, max: 200)
+     *   - limit: Maximum number of results to return (default: 20). Values
+     *     above {@see \Searchcraft\Validators::MAX_SEARCH_LIMIT} are
+     *     rejected client-side.
      *   - offset: Number of results to skip (default: 0)
-     *   - order_by: Field to order results by
+     *   - order_by: Field to order results by. Ordering by a field means
+     *     hits come back with a null score.
      *   - sort: Sort direction "asc" or "desc" (default: "desc")
-     *   - occur: "should" (default) or "must" for Boolean queries
-     *   - mode: "fuzzy" (default) or "exact" query mode for string queries
-     * @return array Search results
+     *   - mode: "fuzzy" (default), "exact", or "dynamic" query mode for
+     *     string queries. Ignored when `$query` is an array.
+     *   - occur: "should", "must", or "mustnot" for the built clause.
+     *     Applies to string queries only.
+     *   - fields: Restricts a string query to specific fields instead of the
+     *     index's configured `search_fields`. Accepts a field name, a list
+     *     of field names, or a map of field name to boost. Honoured for
+     *     `fuzzy` and `term` clauses. Applies to string queries only.
+     *   - minimum_number_should_match: Minimum number of optional (`should`)
+     *     clauses a document must match. Added in Searchcraft Engine 0.11.0.
+     *   - time_decay_field: Datetime field used to decay relevance for older
+     *     documents, overriding the index's own setting for this query.
+     *   - index_weighting: Relevance weight for this index within a
+     *     federation search (default: 1.0).
+     *
+     * Unrecognised options are forwarded to the engine unchanged.
+     *
+     * @return array Search results. `time_taken` on the response is in
+     *               seconds.
      * @throws SearchcraftException
      */
     public function query(string $indexName, $query, array $options = []): array
@@ -40,13 +105,9 @@ class Search extends Base
      *
      * @param string $federationName The name of the federation to search
      * @param string|array $query The search query string or complex query object
-     * @param array $options Search options including:
-     *   - limit: Maximum number of results to return (default: 20, max: 200)
-     *   - offset: Number of results to skip (default: 0)
-     *   - order_by: Field to order results by
-     *   - sort: Sort direction "asc" or "desc" (default: "desc")
-     *   - occur: "should" (default) or "must" for Boolean queries
-     *   - mode: "fuzzy" (default) or "exact" query mode for string queries
+     * @param array $options Same options as {@see self::query}, including
+     *                       `index_weighting` to weight this search against
+     *                       the federation's member indexes.
      * @return array Search results from all indices in the federation
      * @throws SearchcraftException
      */
@@ -133,6 +194,9 @@ class Search extends Base
      * @param string|array $query The search query
      * @param array $options Additional search options
      * @return array The formatted search parameters
+     * @throws SearchcraftException When a clause-level option is supplied
+     *                              alongside an array query, where it cannot
+     *                              be applied.
      */
     private function buildSearchParams($query, array $options = []): array
     {
@@ -140,15 +204,46 @@ class Search extends Base
 
         // Handle query parameter
         if (is_string($query)) {
-            // Get query mode - fuzzy (default) or exact
-            $mode = isset($options['mode']) && $options['mode'] === 'exact' ? 'exact' : 'fuzzy';
+            // Get query mode - fuzzy (default), exact, or dynamic
+            $mode = isset($options['mode']) && in_array($options['mode'], self::QUERY_MODES, true)
+                ? $options['mode']
+                : 'fuzzy';
+
+            $clause = ['ctx' => $query];
+
+            // `fields` belongs inside the query clause, not at the top level
+            // of the request.
+            if (isset($options['fields'])) {
+                $clause['fields'] = $options['fields'];
+            }
 
             $params['query'] = [
-                $mode => [
-                    'ctx' => $query
-                ]
+                $mode => $clause
             ];
+
+            // `occur` sits beside the mode key inside the query object, not
+            // at the top level of the request.
+            if (isset($options['occur'])) {
+                if (!in_array($options['occur'], self::OCCUR_MODES, true)) {
+                    throw new SearchcraftException(
+                        'occur must be one of: ' . implode(', ', self::OCCUR_MODES)
+                    );
+                }
+
+                $params['query']['occur'] = $options['occur'];
+            }
         } elseif (is_array($query)) {
+            // An array query is forwarded verbatim, so clause-level options
+            // have nowhere to go — they belong inside the clauses themselves.
+            foreach (['fields', 'occur'] as $clauseOption) {
+                if (isset($options[$clauseOption])) {
+                    throw new SearchcraftException(
+                        "The '{$clauseOption}' option applies to string queries only; "
+                        . "set it inside the query clause when passing an array query"
+                    );
+                }
+            }
+
             // Complex query object - pass as is
             $params['query'] = $query;
         }
@@ -172,7 +267,7 @@ class Search extends Base
 
         // Add any other options directly to the params
         foreach ($options as $key => $value) {
-            if (!in_array($key, ['limit', 'offset', 'order_by', 'sort', 'mode'])) {
+            if (!in_array($key, self::RESERVED_OPTIONS, true)) {
                 $params[$key] = $value;
             }
         }

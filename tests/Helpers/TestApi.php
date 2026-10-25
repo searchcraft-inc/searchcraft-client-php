@@ -28,6 +28,20 @@ class TestApi extends Base
     }
 
     /**
+     * Expose Base::streamRequest() for direct testing.
+     *
+     * @param string $method HTTP method.
+     * @param string $path API path.
+     * @param array $params Request parameters forwarded to Base::streamRequest().
+     * @param callable|null $onEvent Optional per-event callback.
+     * @return array List of parsed SSE events.
+     */
+    public function testStreamRequest(string $method, string $path, array $params = [], ?callable $onEvent = null): array
+    {
+        return $this->streamRequest($method, $path, $params, $onEvent);
+    }
+
+    /**
      * Expose Base::parseEventStream() for direct testing.
      *
      * @param object $stream Stream-like object whose `eof()`, `read()`,

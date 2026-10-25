@@ -23,7 +23,7 @@ use Searchcraft\Api\Transactions;
 
 class Searchcraft
 {
-    public const VERSION = '0.8.0';
+    public const VERSION = '0.8.2';
     public const DEFAULT_API_ENDPOINT = 'http://localhost:8000';
 
     // API Key types

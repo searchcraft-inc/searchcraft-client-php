@@ -446,3 +446,346 @@ test('Search::query handles API error', function () {
     expect(fn() => $this->search->query($indexName, $query))
         ->toThrow(SearchcraftException::class, 'Index not found');
 });
+
+test('Search::query with string query in dynamic mode', function () {
+    $indexName = 'test-index';
+    $query = 'test query';
+
+    $expectedParams = [
+        'query' => [
+            'dynamic' => [
+                'ctx' => $query
+            ]
+        ]
+    ];
+
+    $responseData = ['data' => ['hits' => []]];
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->with('POST', $this->apiEndpoint . "/index/{$indexName}/search")
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->streamFactory->shouldReceive('createStream')
+        ->once()
+        ->with(json_encode($expectedParams, JSON_PRESERVE_ZERO_FRACTION))
+        ->andReturn($this->stream);
+
+    $this->request->shouldReceive('withBody')
+        ->once()
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(200);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn(json_encode($responseData));
+
+    $result = $this->search->query($indexName, $query, ['mode' => 'dynamic']);
+
+    expect($result)->toBe($responseData);
+});
+
+test('Search::query falls back to fuzzy for an unrecognised mode', function () {
+    $indexName = 'test-index';
+    $query = 'test query';
+
+    $expectedParams = [
+        'query' => [
+            'fuzzy' => [
+                'ctx' => $query
+            ]
+        ]
+    ];
+
+    $responseData = ['data' => ['hits' => []]];
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->streamFactory->shouldReceive('createStream')
+        ->once()
+        ->with(json_encode($expectedParams, JSON_PRESERVE_ZERO_FRACTION))
+        ->andReturn($this->stream);
+
+    $this->request->shouldReceive('withBody')
+        ->once()
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(200);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn(json_encode($responseData));
+
+    $result = $this->search->query($indexName, $query, ['mode' => 'nonsense']);
+
+    expect($result)->toBe($responseData);
+});
+
+test('Search::query nests fields inside the query clause', function () {
+    $indexName = 'test-index';
+    $query = 'test query';
+
+    $expectedParams = [
+        'query' => [
+            'fuzzy' => [
+                'ctx' => $query,
+                'fields' => ['title' => 2, 'body' => 1],
+            ]
+        ],
+    ];
+
+    $responseData = ['data' => ['hits' => []]];
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->streamFactory->shouldReceive('createStream')
+        ->once()
+        ->with(json_encode($expectedParams, JSON_PRESERVE_ZERO_FRACTION))
+        ->andReturn($this->stream);
+
+    $this->request->shouldReceive('withBody')
+        ->once()
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(200);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn(json_encode($responseData));
+
+    $result = $this->search->query($indexName, $query, [
+        'fields' => ['title' => 2, 'body' => 1],
+    ]);
+
+    expect($result)->toBe($responseData);
+});
+
+test('Search::query forwards an array query verbatim', function () {
+    $indexName = 'test-index';
+    $query = [
+        [
+            'occur' => 'mustnot',
+            'term' => ['ctx' => 'status:draft', 'fields' => 'status'],
+        ],
+        [
+            'occur' => 'should',
+            'more-like-this' => ['ctx' => '1a2b3c'],
+        ],
+    ];
+
+    $expectedParams = [
+        'query' => $query,
+        'index_weighting' => 1.5,
+        'time_decay_field' => 'published_at',
+        'minimum_number_should_match' => 1,
+    ];
+
+    $responseData = ['data' => ['hits' => []]];
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->streamFactory->shouldReceive('createStream')
+        ->once()
+        ->with(json_encode($expectedParams, JSON_PRESERVE_ZERO_FRACTION))
+        ->andReturn($this->stream);
+
+    $this->request->shouldReceive('withBody')
+        ->once()
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(200);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn(json_encode($responseData));
+
+    $result = $this->search->query($indexName, $query, [
+        'index_weighting' => 1.5,
+        'time_decay_field' => 'published_at',
+        'minimum_number_should_match' => 1,
+    ]);
+
+    expect($result)->toBe($responseData);
+});
+
+test('Search::query places occur beside the mode key inside the query object', function () {
+    $indexName = 'test-index';
+    $query = 'test query';
+
+    $expectedParams = [
+        'query' => [
+            'exact' => ['ctx' => $query],
+            'occur' => 'must',
+        ]
+    ];
+
+    $responseData = ['data' => ['hits' => []]];
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->streamFactory->shouldReceive('createStream')
+        ->once()
+        ->with(json_encode($expectedParams, JSON_PRESERVE_ZERO_FRACTION))
+        ->andReturn($this->stream);
+
+    $this->request->shouldReceive('withBody')
+        ->once()
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(200);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn(json_encode($responseData));
+
+    $result = $this->search->query($indexName, $query, [
+        'mode' => 'exact',
+        'occur' => 'must',
+    ]);
+
+    expect($result)->toBe($responseData);
+});
+
+test('Search::query rejects an unrecognised occur mode', function () {
+    expect(fn() => $this->search->query('test-index', 'test query', ['occur' => 'maybe']))
+        ->toThrow(SearchcraftException::class, 'occur must be one of: should, must, mustnot');
+});
+
+test('Search::query rejects clause-level options alongside an array query', function () {
+    $arrayQuery = [['occur' => 'must', 'fuzzy' => ['ctx' => 'test']]];
+
+    expect(fn() => $this->search->query('test-index', $arrayQuery, ['fields' => 'title']))
+        ->toThrow(SearchcraftException::class, "The 'fields' option applies to string queries only");
+
+    expect(fn() => $this->search->query('test-index', $arrayQuery, ['occur' => 'must']))
+        ->toThrow(SearchcraftException::class, "The 'occur' option applies to string queries only");
+});
+
+test('Search::federatedQuery supports occur on a string query', function () {
+    $federationName = 'test-federation';
+    $query = 'test query';
+
+    $expectedParams = [
+        'query' => [
+            'fuzzy' => ['ctx' => $query],
+            'occur' => 'mustnot',
+        ],
+        'index_weighting' => 2.0,
+    ];
+
+    $responseData = ['data' => ['hits' => []]];
+
+    $this->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->with('POST', $this->apiEndpoint . "/federation/{$federationName}/search")
+        ->andReturn($this->request);
+
+    $this->request->shouldReceive('withHeader')
+        ->andReturn($this->request);
+
+    $this->streamFactory->shouldReceive('createStream')
+        ->once()
+        ->with(json_encode($expectedParams, JSON_PRESERVE_ZERO_FRACTION))
+        ->andReturn($this->stream);
+
+    $this->request->shouldReceive('withBody')
+        ->once()
+        ->andReturn($this->request);
+
+    $this->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->andReturn($this->response);
+
+    $this->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($this->stream);
+
+    $this->response->shouldReceive('getStatusCode')
+        ->once()
+        ->andReturn(200);
+
+    $this->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn(json_encode($responseData));
+
+    $result = $this->search->federatedQuery($federationName, $query, [
+        'occur' => 'mustnot',
+        'index_weighting' => 2.0,
+    ]);
+
+    expect($result)->toBe($responseData);
+});
