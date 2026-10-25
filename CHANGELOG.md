@@ -68,8 +68,10 @@ Support for Searchcraft Engine 0.11.0, 0.11.1.
 - `Searchcraft\Permissions` with the engine's permission bits (`SEARCH`,
   `MODIFY_SYNONYMS`, `MODIFY_STOP_WORDS`, `MODIFY_DOCUMENTS`, `MODIFY_INDEX`,
   `MODIFY_AUTH`, `LLM_RAG_SUMMARIES`, `LLM_EXPANDED_KEYWORD_SEARCH`,
-  `READ_ANALYTICS`) and the conventional presets `PRESET_READ`,
-  `PRESET_INGEST`, `PRESET_ADMIN`, and `PRESET_SUPER_USER`.
+  `READ_ANALYTICS`) and the conventional presets: the levels `PRESET_READ`
+  (1), `PRESET_INGEST` (15), `PRESET_ADMIN` (63) and `PRESET_SUPER_USER`
+  (511), and the add-ons `PRESET_AI` (64) and `PRESET_ANALYTICS` (256), which
+  combine with a level using `|`.
 - `fields` search option, nested into the query clause rather than sent at the
   top level. Accepts a field name, a list of names, or a map of name to boost,
   and scopes a `fuzzy` or `term` clause to those fields instead of the index's

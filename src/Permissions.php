@@ -58,11 +58,21 @@ final class Permissions
 
     /**
      * Every permission the engine defines, including the AI and analytics
-     * bits. This exceeds 255 — a key's permission is a number, never one of
-     * a fixed set of levels.
+     * bits (511). This exceeds 255 — a key's permission is a number, never
+     * one of a fixed set of levels.
      */
     public const PRESET_SUPER_USER = self::PRESET_ADMIN
         | self::LLM_RAG_SUMMARIES
         | self::LLM_EXPANDED_KEYWORD_SEARCH
         | self::READ_ANALYTICS;
+
+    /**
+     * Add-on: AI summaries and semantic search (64). Combine with a level,
+     * e.g. `PRESET_READ | PRESET_AI` for a public key that can request AI
+     * summaries.
+     */
+    public const PRESET_AI = self::LLM_RAG_SUMMARIES;
+
+    /** Add-on: read the measure dashboards (256). */
+    public const PRESET_ANALYTICS = self::READ_ANALYTICS;
 }

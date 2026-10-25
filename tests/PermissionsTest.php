@@ -49,3 +49,17 @@ test('Permissions presets are composed of the expected bits', function () {
     expect(Permissions::PRESET_SUPER_USER & Permissions::READ_ANALYTICS)
         ->toBe(Permissions::READ_ANALYTICS);
 });
+
+test('Permissions levels combine with add-ons', function () {
+    expect(Permissions::PRESET_AI)->toBe(Permissions::LLM_RAG_SUMMARIES);
+    expect(Permissions::PRESET_ANALYTICS)->toBe(Permissions::READ_ANALYTICS);
+
+    expect(Permissions::PRESET_READ | Permissions::PRESET_AI)->toBe(65);
+    expect(Permissions::PRESET_READ | Permissions::PRESET_AI | Permissions::PRESET_ANALYTICS)
+        ->toBe(321);
+
+    // Every add-on on top of admin still stops short of a super user.
+    expect(Permissions::PRESET_ADMIN | Permissions::PRESET_AI | Permissions::PRESET_ANALYTICS)
+        ->toBe(383);
+    expect(Permissions::PRESET_SUPER_USER)->toBe(511);
+});

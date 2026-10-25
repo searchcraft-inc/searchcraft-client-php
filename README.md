@@ -622,12 +622,20 @@ $canManageContent = $searchcraft->authentication()
 // Presets are available for the conventional key shapes.
 $isAdmin = $searchcraft->authentication()
     ->checkKeyPermissions(Permissions::PRESET_ADMIN);
+
+// Add-ons combine with a level: a read key that can request AI summaries.
+$canSummarize = $searchcraft->authentication()
+    ->checkKeyPermissions(Permissions::PRESET_READ | Permissions::PRESET_AI);
 ```
 
 Individual bits: `SEARCH`, `MODIFY_SYNONYMS`, `MODIFY_STOP_WORDS`,
 `MODIFY_DOCUMENTS`, `MODIFY_INDEX`, `MODIFY_AUTH`, `LLM_RAG_SUMMARIES`,
-`LLM_EXPANDED_KEYWORD_SEARCH`, `READ_ANALYTICS`. Presets: `PRESET_READ`,
-`PRESET_INGEST`, `PRESET_ADMIN`, `PRESET_SUPER_USER`.
+`LLM_EXPANDED_KEYWORD_SEARCH`, `READ_ANALYTICS`.
+
+Presets come in two kinds. Levels say what a key can change: `PRESET_READ`
+(1), `PRESET_INGEST` (15), `PRESET_ADMIN` (63), `PRESET_SUPER_USER` (511).
+Add-ons are features a key can use on top of its level: `PRESET_AI` (64) and
+`PRESET_ANALYTICS` (256). Combine them with `|`.
 
 ## Measure Operations
 
