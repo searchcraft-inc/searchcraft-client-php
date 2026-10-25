@@ -561,7 +561,6 @@ test('Search::query nests fields inside the query clause', function () {
                 'fields' => ['title' => 2, 'body' => 1],
             ]
         ],
-        'minimum_number_should_match' => 2,
     ];
 
     $responseData = ['data' => ['hits' => []]];
@@ -600,7 +599,6 @@ test('Search::query nests fields inside the query clause', function () {
 
     $result = $this->search->query($indexName, $query, [
         'fields' => ['title' => 2, 'body' => 1],
-        'minimum_number_should_match' => 2,
     ]);
 
     expect($result)->toBe($responseData);
@@ -623,6 +621,7 @@ test('Search::query forwards an array query verbatim', function () {
         'query' => $query,
         'index_weighting' => 1.5,
         'time_decay_field' => 'published_at',
+        'minimum_number_should_match' => 1,
     ];
 
     $responseData = ['data' => ['hits' => []]];
@@ -662,6 +661,7 @@ test('Search::query forwards an array query verbatim', function () {
     $result = $this->search->query($indexName, $query, [
         'index_weighting' => 1.5,
         'time_decay_field' => 'published_at',
+        'minimum_number_should_match' => 1,
     ]);
 
     expect($result)->toBe($responseData);

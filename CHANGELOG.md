@@ -8,7 +8,8 @@ Support for Searchcraft Engine 0.11.0, 0.11.1.
 
 - **API error messages no longer carry the `"API request failed: "` prefix.**
   Errors raised from an HTTP status now surface the engine's own message, with
-  `getCode()` returning the status and `getErrorData()` the decoded payload.
+  `getCode()` returning the engine's `error.code` when the body carries one and
+  the HTTP status otherwise, and `getErrorData()` the decoded payload.
   Transport failures — a network error or a client exception — keep the old
   prefixed message and a code of `0`. Code that matched on the prefix to
   detect API errors should switch to `getCode()`.
@@ -39,6 +40,12 @@ Support for Searchcraft Engine 0.11.0, 0.11.1.
   response whose JSON is valid but not an object is still reported as an
   invalid response, instead of surfacing as a `TypeError` wrapped in a
   transport error.
+- **A streamed error response whose body was valid JSON but not an object
+  raised a `TypeError`.** `streamRequest()`, used by `Search::searchSummary()`,
+  only fell back to the raw body when it failed to parse, so a body such as
+  `"forbidden"` or `123` reached `SearchcraftException::fromApiResponse()` as a
+  scalar. It now applies the same check as `handleResponse()`, and a body of
+  `"0"` is reported as-is rather than as `Unknown error`.
 - **`occur` never reached the engine.** It was documented as a search option
   but forwarded to the top level of the request, where the engine ignores it;
   the query object is where it belongs, beside the mode key. It now applies

@@ -126,8 +126,7 @@ abstract class Base
      * An error status is resolved before the body is required to be valid
      * JSON, so that a failure carrying an empty, plain-text, or non-object
      * body still raises an exception whose code is the HTTP status rather
-     * than a generic decoding error. This matches how
-     * {@see self::streamRequest()} treats error responses.
+     * than a generic decoding error.
      *
      * @param ResponseInterface $response
      * @return array
@@ -218,8 +217,8 @@ abstract class Base
         if ($statusCode >= 400) {
             $errorBody = (string) $response->getBody();
             $errorData = json_decode($errorBody, true);
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                $errorData = ['error' => ['message' => $errorBody ?: 'Unknown error']];
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($errorData)) {
+                $errorData = ['error' => ['message' => $errorBody !== '' ? $errorBody : 'Unknown error']];
             }
             throw SearchcraftException::fromApiResponse($errorData, $statusCode);
         }

@@ -442,3 +442,67 @@ test('Base::request rejects a successful response whose JSON is not an object', 
     expect(fn() => $this->api->testRequest('GET', $path))
         ->toThrow(SearchcraftException::class, 'Invalid JSON response from API');
 });
+
+/**
+ * Mock a streamed request that fails with the given status and body.
+ */
+function mockStreamErrorResponse($test, int $statusCode, string $body): void
+{
+    $test->requestFactory->shouldReceive('createRequest')
+        ->once()
+        ->andReturn($test->request);
+
+    $test->request->shouldReceive('withHeader')
+        ->andReturn($test->request);
+
+    $test->httpClient->shouldReceive('sendRequest')
+        ->once()
+        ->andReturn($test->response);
+
+    $test->response->shouldReceive('getStatusCode')
+        ->andReturn($statusCode);
+
+    $test->response->shouldReceive('getBody')
+        ->once()
+        ->andReturn($test->stream);
+
+    $test->stream->shouldReceive('__toString')
+        ->once()
+        ->andReturn($body);
+}
+
+test('Base::streamRequest reports an error status when the body is JSON but not an object', function () {
+    mockStreamErrorResponse($this, 403, '"forbidden"');
+
+    try {
+        $this->api->testStreamRequest('GET', '/test-path');
+        expect(false)->toBeTrue('Expected a SearchcraftException to be thrown');
+    } catch (SearchcraftException $e) {
+        expect($e->getMessage())->toBe('"forbidden"');
+        expect($e->getCode())->toBe(403);
+    }
+});
+
+test('Base::streamRequest reports a body of "0" as-is', function () {
+    mockStreamErrorResponse($this, 500, '0');
+
+    try {
+        $this->api->testStreamRequest('GET', '/test-path');
+        expect(false)->toBeTrue('Expected a SearchcraftException to be thrown');
+    } catch (SearchcraftException $e) {
+        expect($e->getMessage())->toBe('0');
+        expect($e->getCode())->toBe(500);
+    }
+});
+
+test('Base::streamRequest reports an error status when the body is not JSON', function () {
+    mockStreamErrorResponse($this, 502, 'Bad Gateway');
+
+    try {
+        $this->api->testStreamRequest('GET', '/test-path');
+        expect(false)->toBeTrue('Expected a SearchcraftException to be thrown');
+    } catch (SearchcraftException $e) {
+        expect($e->getMessage())->toBe('Bad Gateway');
+        expect($e->getCode())->toBe(502);
+    }
+});

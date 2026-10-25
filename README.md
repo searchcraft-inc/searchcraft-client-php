@@ -147,10 +147,6 @@ queries only. Passing either alongside an array query throws a
 
 ```php
 $results = $searchcraft->search()->query('my_index', 'search term', [
-    // Minimum number of optional (`should`) clauses a document must match.
-    // Added in Searchcraft Engine 0.11.0.
-    'minimum_number_should_match' => 2,
-
     // Datetime field used to decay relevance for older documents,
     // overriding the index's own setting for this query.
     'time_decay_field' => 'publishedAt',
@@ -182,6 +178,15 @@ $results = $searchcraft->search()->query('my_index', [
 
     ['occur' => 'mustnot', 'exact' => ['ctx' => 'category:opinion']],
 ]);
+
+// Require at least two of the optional (`should`) clauses to match. The
+// minimum cannot exceed the number of `should` clauses in the query.
+// `minimum_number_should_match` was added in Searchcraft Engine 0.11.0.
+$results = $searchcraft->search()->query('my_index', [
+    ['occur' => 'should', 'fuzzy' => ['ctx' => 'election']],
+    ['occur' => 'should', 'fuzzy' => ['ctx' => 'senate']],
+    ['occur' => 'should', 'fuzzy' => ['ctx' => 'polls']],
+], ['minimum_number_should_match' => 2]);
 
 // Find documents similar to a reference document. `ctx` is the internal
 // Searchcraft `document_id`, as returned on each search hit.
