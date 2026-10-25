@@ -47,6 +47,36 @@ class Federation extends Base
     }
 
     /**
+     * List the names of the indexes belonging to a federation.
+     *
+     * Uses GET /federation/:federation_name/indices.
+     *
+     * @param string $federationName The name of the federation
+     * @return array List of index names in the federation
+     * @throws SearchcraftException
+     */
+    public function listFederationIndexes(string $federationName): array
+    {
+        return $this->request('GET', "/federation/{$federationName}/indices");
+    }
+
+    /**
+     * Get document and storage statistics for a federation.
+     *
+     * Uses GET /federation/:federation_name/stats. The response carries the
+     * federation's `num_docs` total alongside an `indices` list giving each
+     * member index its own `num_docs` and `space_usage`.
+     *
+     * @param string $federationName The name of the federation
+     * @return array Federation statistics
+     * @throws SearchcraftException
+     */
+    public function getFederationStats(string $federationName): array
+    {
+        return $this->request('GET', "/federation/{$federationName}/stats");
+    }
+
+    /**
      * Create a new federation.
      *
      * @param array $federation Federation configuration

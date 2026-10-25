@@ -24,6 +24,22 @@ class Stopwords extends Base
     }
 
     /**
+     * Get the engine's built-in stopwords for an index's language.
+     *
+     * Uses GET /index/:index_name/stopwords/default. These are the defaults
+     * the engine applies when `exclude_stop_words` is enabled, as distinct
+     * from the custom list {@see self::getStopwords} returns.
+     *
+     * @param string $indexName The name of the index
+     * @return array List of default stopwords for the index language
+     * @throws SearchcraftException
+     */
+    public function getDefaultStopwords(string $indexName): array
+    {
+        return $this->request('GET', "/index/{$indexName}/stopwords/default");
+    }
+
+    /**
      * Add stopwords to an index.
      *
      * @param string $indexName The name of the index
